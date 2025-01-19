@@ -4,7 +4,6 @@ from posts.models import Group, Comment
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from posts.models import Post
-from rest_framework.permissions import AllowAny
 from api.serializers import PostSerializer
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
