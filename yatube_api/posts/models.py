@@ -24,3 +24,18 @@ class Comment(models.Model):
     text = models.TextField()
     created = models.DateTimeField(
         'Дата добавления', auto_now_add=True, db_index=True)
+
+
+class Group(models.Model):
+    title = models.CharField(max_length=200, unique=True,
+                             verbose_name="Название группы")
+    slug = models.SlugField(max_length=100, unique=True,
+                            verbose_name="Слаг группы")
+    description = models.TextField(verbose_name="Описание группы")
+
+    class Meta:
+        verbose_name = "Группа"
+        verbose_name_plural = "Группы"
+
+    def __str__(self):
+        return self.title
