@@ -1,3 +1,4 @@
+from posts.models import Group
 from rest_framework import serializers
 from rest_framework.relations import SlugRelatedField
 from rest_framework.exceptions import ValidationError
@@ -20,10 +21,29 @@ class PostSerializer(serializers.ModelSerializer):
                                    'Поле "text" обязательно для заполнения.'})
         return data
 
+    def create(self, validated_data):
+        post = Post.objects.create(**validated_data)
+
+        if 'group' in self.initial_data:
+            group = self.initial_data['group']
+            post.group = Group.objects.get(pk=group)
+            post.save()
+
+        return post
+
+    def update(self, instance, validated_data):
+        instance.text = validated_data.get('text', instance.text)
+        instance.save()
+
+        return instance
+
 
 class CommentSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(
         read_only=True, slug_field='username'
+    )
+    post = serializers.PrimaryKeyRelatedField(
+        read_only=True,
     )
 
     class Meta:
@@ -51,3 +71,12 @@ class FollowSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'Нельзя подписаться на самого себя.')
         return value
+
+
+# posts/serializers.py
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ['id', 'title', 'slug', 'description']
