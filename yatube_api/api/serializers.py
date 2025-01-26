@@ -1,74 +1,61 @@
-from posts.models import Group
 from rest_framework import serializers
-from rest_framework.relations import SlugRelatedField
-from rest_framework.exceptions import ValidationError
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.validators import UniqueTogetherValidator
 
-from posts.models import Comment, Post, Follow, User
-
-
-class GroupSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Group
-        fields = ('id', 'name', 'description')
+from posts.models import Comment, Follow, Group, Post, User
 
 
 class PostSerializer(serializers.ModelSerializer):
-    author = SlugRelatedField(slug_field='username', read_only=True)
-    group = serializers.PrimaryKeyRelatedField(read_only=True)
+    author = serializers.SlugRelatedField(
+        slug_field='username',
+        read_only=True)
 
     class Meta:
-        fields = '__all__'
         model = Post
-        fields = ['id', 'text', 'image', 'group', 'author', 'pub_date']
-
-    def validate(self, data):
-        if 'text' not in data or not data['text'].strip():
-            raise ValidationError({'text':
-                                   'Поле "text" обязательно для заполнения.'})
-        return data
-
-    def create(self, validated_data):
-        post = Post.objects.create(**validated_data)
-
-        if 'group' in self.initial_data:
-            group = self.initial_data['group']
-            post.group = Group.objects.get(pk=group)
-            post.save()
-
-        return post
-
-    def update(self, instance, validated_data):
-        if self.context['request'].user != instance.author:
-            raise PermissionDenied('Вы не можете редактировать этот пост.')
-        return super().update(instance, validated_data)
+        fields = '__all__'
 
 
 class CommentSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(
-        read_only=True, slug_field='username'
-    )
-    post = serializers.PrimaryKeyRelatedField(
         read_only=True,
-    )
+        slug_field='username',
+        default=serializers.CurrentUserDefault())
+    post = serializers.PrimaryKeyRelatedField(
+        read_only=True)
 
     class Meta:
-        fields = '__all__'
         model = Comment
+        fields = '__all__'
+
+
+class GroupSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Group
+        fields = '__all__'
 
 
 class FollowSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField(read_only=True)
+    user = serializers.SlugRelatedField(
+        slug_field='username',
+        queryset=User.objects.all(),
+        default=serializers.CurrentUserDefault())
     following = serializers.SlugRelatedField(
-        slug_field='username', queryset=User.objects.all()
-    )
+        slug_field='username',
+        queryset=User.objects.all())
 
     class Meta:
         model = Follow
-        fields = ('user', 'following')
+        fields = '__all__'
+        validators = (
+            UniqueTogetherValidator(
+                queryset=Follow.objects.all(),
+                fields=('user', 'following'),
+                message=('Подписка на автора оформлена ранее!')
+            ),
+        )
 
-    def validate_following(self, value):
-        if self.context['request'].user == value:
+    def validate(self, data):
+        if data['user'] == data['following']:
             raise serializers.ValidationError(
-                "Нельзя подписаться на самого себя.")
-        return value
+                'Нельзя подписаться на самого себя!')
+        return data

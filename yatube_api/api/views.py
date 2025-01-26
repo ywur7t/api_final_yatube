@@ -1,53 +1,67 @@
-# from django.shortcuts import get_object_or_404
 
-from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
-# from api.permisssions import IsAuthenticatedOrReadOnly
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from api.permisssions import IsOwner
-from posts.models import Follow, Post
-from .serializers import FollowSerializer, PostSerializer
+from rest_framework import filters, mixins, permissions, viewsets
+from rest_framework.pagination import LimitOffsetPagination
 
-from api.serializers import CommentSerializer
-from posts.models import Comment
+from api.permissons import AuthorPermission
+
+from .serializers import (CommentSerializer, FollowSerializer, GroupSerializer,
+                          PostSerializer)
+
+from posts.models import Comment, Group, Post
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError, PermissionDenied
-from rest_framework.permissions import AllowAny
-from api.serializers import GroupSerializer
-from django.contrib.auth.models import Group
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from api.permisssions import IsOwner
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 
-class FollowViewSet(viewsets.ModelViewSet):
+class GroupViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Список групп.
+    """
+
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+
+
+class FollowViewSet(mixins.CreateModelMixin,
+                    mixins.ListModelMixin,
+                    viewsets.GenericViewSet):
+    """
+    Список подписок.
+    """
+
     serializer_class = FollowSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['following__username']
+    permission_classes = (permissions.IsAuthenticated,)
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('following__username',)
 
     def get_queryset(self):
-        queryset = Follow.objects.filter(user=self.request.user)
-        search_param = self.request.query_params.get('search')
-        if search_param:
-            queryset = queryset.filter(
-                following__username__icontains=search_param)
-        return queryset
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        return self.request.user.follower.all()
 
     def perform_create(self, serializer):
-        user = self.request.user
-        following = serializer.validated_data['following']
-        if Follow.objects.filter(user=user, following=following).exists():
-            raise ValidationError("Вы уже подписаны на этого пользователя.")
-        serializer.save(user=user)
+        serializer.save(user=self.request.user)
 
 
-class PostViewSet(viewsets.ModelViewSet):  # Только чтение
-    queryset = Post.objects.select_related('author', 'group').all()
+class PostViewSet(viewsets.ModelViewSet):
+    """
+    Список постов.
+    """
+    queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = (AuthorPermission,)
+    pagination_class = LimitOffsetPagination
+
+    permission_classes_by_action = {
+
+        'create': [IsAuthenticatedOrReadOnly],
+    }
+
+    def get_permissions(self):
+        return [permission() for permission in
+                self.permission_classes_by_action.get(self.action,
+                                                      self.permission_classes)]
 
     def perform_create(self, serializer):
         # Проверка на авторизацию
@@ -55,27 +69,6 @@ class PostViewSet(viewsets.ModelViewSet):  # Только чтение
             raise PermissionDenied(
                 "Вы должны быть авторизованы для создания поста.")
         serializer.save(author=self.request.user)
-
-    def perform_destroy(self, instance):
-        if instance.author != self.request.user:
-            raise PermissionDenied("Вы не можете удалить чужой пост.")
-        super().perform_destroy(instance)
-
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self.check_object_permissions(request, instance)  # Проверяем права
-        return super().update(request, *args, **kwargs)
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -107,73 +100,3 @@ class CommentViewSet(viewsets.ModelViewSet):
         return [permission() for permission in
                 self.permission_classes_by_action.get(self.action,
                                                       self.permission_classes)]
-
-
-class GroupViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Group.objects.all()
-    serializer_class = GroupSerializer
-
-    # Разрешения на просмотр групп
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-    # permission_classes_by_action = {
-    #     'retrieve': [IsAuthenticatedOrReadOnly],
-    #     'list': [IsAuthenticatedOrReadOnly],
-    #     'create': [IsAuthenticated],
-    #     'update': [IsAuthenticated],
-    #     'partial_update': [IsAuthenticated],
-    #     'destroy': [IsAuthenticated],
-    # }
-
-    # def get_permissions(self):
-    #     return [permission() for permission in
-    #             self.permission_classes_by_action.get(self.action,
-    #                                                   self.permission_classes)]
-# class GroupViewSet(viewsets.ReadOnlyModelViewSet):
-
-#     queryset = Group.objects.all()
-#     serializer_class = GroupSerializer
-#     permission_classes = [IsAuthenticatedOrReadOnly]
-
-#     permission_classes_by_action = {
-#         'retrieve': [IsAuthenticated],
-#         'list': [IsAuthenticatedOrReadOnly],
-#         'create': [IsAuthenticated],
-#         'update': [IsAuthenticated],
-#         'partial_update': [IsAuthenticated],
-#         'destroy': [IsAuthenticated],
-#     }
-
-#     def get_permissions(self):
-#         return [permission() for permission in
-#                 self.permission_classes_by_action.get(self.action,
-#                                                       self.permission_classes)]
-    # permission_classes_by_action = {
-    #     'retrieve': [IsAuthenticated],
-    #     'list': [IsAuthenticatedOrReadOnly],
-    #     'create': [IsAuthenticated],
-    #     'update': [IsAuthenticated],
-    #     'partial_update': [IsAuthenticated],
-    #     'destroy': [IsAuthenticated]
-    # }
-
-    # def get_permissions(self):
-    #     return [permission() for permission in
-    #             self.permission_classes_by_action.get(self.action,
-    #                                                   self.permission_classes)]
-
-    # def create(self, request, *args, **kwargs):
-    #     raise PermissionDenied("Создание групп через API запрещено.")
-
-    # def retrieve(self, request, *args, **kwargs):
-    #     """
-    #     Обрабатывает запрос GET /api/v1/groups/{group_id}/.
-    #     """
-    #     group_id = kwargs.get('pk')  # Получаем ID группы из URL
-    #     group = self.get_queryset().filter(id=group_id).first()
-
-    #     if not group:
-    #         raise NotFound(f"Группа с ID {group_id} не найдена.")
-
-    #     serializer = self.get_serializer(group)
-    #     return Response(serializer.data)
