@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,6 +19,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'api',
     'posts',
+    'rest_framework.authtoken'
 ]
 
 MIDDLEWARE = [
@@ -91,6 +91,12 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = ((BASE_DIR / 'static/'),)
 
 REST_FRAMEWORK = {
+    # 'DEFAULT_PERMISSION_CLASSES': [
+    #     'rest_framework.permissions.IsAuthenticated',
+    # ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
