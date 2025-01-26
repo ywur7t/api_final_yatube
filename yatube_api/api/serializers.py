@@ -2,9 +2,15 @@ from posts.models import Group
 from rest_framework import serializers
 from rest_framework.relations import SlugRelatedField
 from rest_framework.exceptions import ValidationError
-
+from rest_framework.exceptions import PermissionDenied
 
 from posts.models import Comment, Post, Follow, User
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ('__all__')
 
 
 class PostSerializer(serializers.ModelSerializer):
@@ -33,10 +39,9 @@ class PostSerializer(serializers.ModelSerializer):
         return post
 
     def update(self, instance, validated_data):
-        instance.text = validated_data.get('text', instance.text)
-        instance.save()
-
-        return instance
+        if self.context['request'].user != instance.author:
+            raise PermissionDenied('Вы не можете редактировать этот пост.')
+        return super().update(instance, validated_data)
 
 
 class CommentSerializer(serializers.ModelSerializer):
