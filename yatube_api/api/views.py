@@ -1,7 +1,9 @@
 # from django.shortcuts import get_object_or_404
+
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
-from api.permisssions import IsAuthenticatedOrReadOnly
+# from api.permisssions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from api.permisssions import IsOwner
 from posts.models import Follow, Post
 from .serializers import FollowSerializer, PostSerializer
@@ -13,8 +15,6 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.permissions import AllowAny
 from api.serializers import GroupSerializer
 from django.contrib.auth.models import Group
-
-from rest_framework.exceptions import NotFound
 
 
 class FollowViewSet(viewsets.ModelViewSet):
@@ -110,37 +110,70 @@ class CommentViewSet(viewsets.ModelViewSet):
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
-
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
 
+    # Разрешения на просмотр групп
     permission_classes = [IsAuthenticatedOrReadOnly]
-    permission_classes_by_action = {
-        'retrieve': [IsAuthenticated],
-        'list': [IsAuthenticatedOrReadOnly],
-        'create': [IsAuthenticated],
-        'update': [IsAuthenticated],
-        'partial_update': [IsAuthenticated],
-        'destroy': [IsAuthenticated]
-    }
 
-    def get_permissions(self):
-        return [permission() for permission in
-                self.permission_classes_by_action.get(self.action,
-                                                      self.permission_classes)]
+    # permission_classes_by_action = {
+    #     'retrieve': [IsAuthenticatedOrReadOnly],
+    #     'list': [IsAuthenticatedOrReadOnly],
+    #     'create': [IsAuthenticated],
+    #     'update': [IsAuthenticated],
+    #     'partial_update': [IsAuthenticated],
+    #     'destroy': [IsAuthenticated],
+    # }
 
-    def create(self, request, *args, **kwargs):
-        raise PermissionDenied("Создание групп через API запрещено.")
+    # def get_permissions(self):
+    #     return [permission() for permission in
+    #             self.permission_classes_by_action.get(self.action,
+    #                                                   self.permission_classes)]
+# class GroupViewSet(viewsets.ReadOnlyModelViewSet):
 
-    def retrieve(self, request, *args, **kwargs):
-        """
-        Обрабатывает запрос GET /api/v1/groups/{group_id}/.
-        """
-        group_id = kwargs.get('pk')  # Получаем ID группы из URL
-        group = self.get_queryset().filter(id=group_id).first()
+#     queryset = Group.objects.all()
+#     serializer_class = GroupSerializer
+#     permission_classes = [IsAuthenticatedOrReadOnly]
 
-        if not group:
-            raise NotFound(f"Группа с ID {group_id} не найдена.")
+#     permission_classes_by_action = {
+#         'retrieve': [IsAuthenticated],
+#         'list': [IsAuthenticatedOrReadOnly],
+#         'create': [IsAuthenticated],
+#         'update': [IsAuthenticated],
+#         'partial_update': [IsAuthenticated],
+#         'destroy': [IsAuthenticated],
+#     }
 
-        serializer = self.get_serializer(group)
-        return Response(serializer.data)
+#     def get_permissions(self):
+#         return [permission() for permission in
+#                 self.permission_classes_by_action.get(self.action,
+#                                                       self.permission_classes)]
+    # permission_classes_by_action = {
+    #     'retrieve': [IsAuthenticated],
+    #     'list': [IsAuthenticatedOrReadOnly],
+    #     'create': [IsAuthenticated],
+    #     'update': [IsAuthenticated],
+    #     'partial_update': [IsAuthenticated],
+    #     'destroy': [IsAuthenticated]
+    # }
+
+    # def get_permissions(self):
+    #     return [permission() for permission in
+    #             self.permission_classes_by_action.get(self.action,
+    #                                                   self.permission_classes)]
+
+    # def create(self, request, *args, **kwargs):
+    #     raise PermissionDenied("Создание групп через API запрещено.")
+
+    # def retrieve(self, request, *args, **kwargs):
+    #     """
+    #     Обрабатывает запрос GET /api/v1/groups/{group_id}/.
+    #     """
+    #     group_id = kwargs.get('pk')  # Получаем ID группы из URL
+    #     group = self.get_queryset().filter(id=group_id).first()
+
+    #     if not group:
+    #         raise NotFound(f"Группа с ID {group_id} не найдена.")
+
+    #     serializer = self.get_serializer(group)
+    #     return Response(serializer.data)
